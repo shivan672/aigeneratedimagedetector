@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TruthLens – AI Image Detector</title>
+<style>
+  :root{--bg:#0b0d17;--card:#141828;--line:#252b44;--txt:#e8ebff;--mut:#8a92b8;--acc:#7c5cff;--ok:#2ee59d;--bad:#ff5c7a}
+  *{box-sizing:border-box;margin:0}
+  body{background:radial-gradient(circle at 20% 0%,#1b1f45,var(--bg) 55%);color:var(--txt);
+       font-family:system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh;
+       display:flex;align-items:center;justify-content:center;padding:24px}
+  .wrap{width:100%;max-width:520px;text-align:center}
+  h1{font-size:2rem;background:linear-gradient(90deg,#a99bff,#5ce1ff);-webkit-background-clip:text;color:transparent}
+  p.sub{color:var(--mut);margin:8px 0 24px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:24px;
+        box-shadow:0 20px 60px rgba(0,0,0,.4)}
+  .drop{border:2px dashed var(--line);border-radius:16px;padding:36px 16px;cursor:pointer;transition:.2s;color:var(--mut)}
+  .drop:hover,.drop.over{border-color:var(--acc);background:#1a1f38;color:var(--txt)}
+  img#preview{max-width:100%;max-height:280px;border-radius:14px;display:none;margin:0 auto}
+  button{margin-top:18px;width:100%;padding:14px;border:0;border-radius:12px;font-size:1rem;font-weight:600;
+         color:#fff;background:linear-gradient(90deg,var(--acc),#4f8cff);cursor:pointer}
+  button:disabled{opacity:.5;cursor:wait}
+  #result{margin-top:22px;display:none}
+  .verdict{font-size:1.5rem;font-weight:700}
+  .bar{height:12px;border-radius:99px;background:var(--line);margin-top:12px;overflow:hidden}
+  .fill{height:100%;width:0;transition:width .7s}
+  .note{color:var(--mut);font-size:.8rem;margin-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>TruthLens</h1>
+  <p class="sub">Detect AI-generated faces in seconds</p>
+  <div class="card">
+    <div class="drop" id="drop">
+      <img id="preview" alt="preview">
+      <div id="hint">📷 Drop an image here or click to upload</div>
+    </div>
+    <input type="file" id="file" accept="image/*" hidden>
+    <button id="go" disabled>Analyze image</button>
+    <div id="result">
+      <div class="verdict" id="verdict"></div>
+      <div class="bar"><div class="fill" id="fill"></div></div>
+      <div class="sub" id="conf" style="margin-top:8px;color:var(--mut)"></div>
+    </div>
+  </div>
+  <p class="note">Detects fully AI-generated faces. May miss AI-enhanced or edited photos.</p>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+let file=null;
+const pick=f=>{ if(!f) return; file=f; const p=$("preview"); p.src=URL.createObjectURL(f);
+  p.style.display="block"; $("hint").style.display="none"; $("go").disabled=false; $("result").style.display="none"; };
+$("drop").onclick=()=>$("file").click();
+$("file").onchange=e=>pick(e.target.files[0]);
+$("drop").ondragover=e=>{e.preventDefault();$("drop").classList.add("over")};
+$("drop").ondragleave=()=>$("drop").classList.remove("over");
+$("drop").ondrop=e=>{e.preventDefault();$("drop").classList.remove("over");pick(e.dataTransfer.files[0])};
+$("go").onclick=async()=>{
+  $("go").disabled=true; $("go").textContent="Analyzing…";
+  const fd=new FormData(); fd.append("file",file);
+  try{
+    const r=await (await fetch("/predict",{method:"POST",body:fd})).json();
+    const fake=r.fake>r.real, conf=Math.max(r.fake,r.real)*100;
+    $("result").style.display="block";
+    $("verdict").textContent=fake?"⚠️ Likely AI-generated":"✅ Likely real";
+    $("verdict").style.color=fake?"var(--bad)":"var(--ok)";
+    $("fill").style.background=fake?"var(--bad)":"var(--ok)";
+    $("fill").style.width=conf+"%";
+    $("conf").textContent=conf.toFixed(1)+"% confidence";
+  }catch(e){ alert("Something went wrong. Try again."); }
+  $("go").disabled=false; $("go").textContent="Analyze image";
+};
+</script>
+</body>
+</html>
